@@ -3,6 +3,7 @@
 Reduce wasted keystrokes interacting with Kubernetes.
 
 `kclo o` instead of `kubectl get pods -n cloudflare -o wide`.
+
 `kclo rf deployment cloudflared-dex` instead of the finalizer patch incantation.
 
 ## What it does
