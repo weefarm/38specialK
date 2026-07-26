@@ -1,0 +1,74 @@
+faf_version: 2.5.0
+project:
+  name: faf-git-1785100258922
+  goal: Reduce wasted keystrokes interacting with Kubernetes.
+  main_language: Go
+  type: library
+stack:
+  frontend: slotignored
+  css_framework: slotignored
+  ui_library: slotignored
+  state_management: slotignored
+  backend: slotignored
+  api_type: slotignored
+  runtime: slotignored
+  database: slotignored
+  connection: slotignored
+  hosting: self-hosted Forgejo + GitHub for source; dev environment is self-hosted cluster (Ubuntu 26.04, amd64+arm64, microk8s, microceph)
+  build: "MANDATORY: before any work, read every file in ~/weefarm/weefarm-prompts/agent-guidelines/ (in filename order) -- binding agent operating rules, canonical source (do not duplicate elsewhere). Windsurf-Next/DevinDesktop-Next, KO (or Go compiler), bash"
+  cicd: Custom Temporal event-driven (webhook) CI workflows + scheduled safety net workflow runs, ArgoCD
+  monorepo_tool: slotignored
+  package_manager: slotignored
+  workspaces: slotignored
+  admin: slotignored
+  cache: slotignored
+  search: slotignored
+  storage: slotignored
+human_context:
+  who: anyone that interacts with kubectl and would like to do so more effeciently or easily, with less keystrokes. Initially for Nathan, made available publicly.
+  what: "38specialK generates short shell functions (`kclo`, `ksys`, `kcnpg`, ...) that each map to a Kubernetes namespace and dispatch to `kubectl` with the right `-n` flag. On top of plain pass-through, three verbs get first-class support:"
+  why: Because it feels like a Wheel-of-Fortune _Before and After_ puzzle?
+  where: local cli (written in Go) or bash shell on user's cluster-maintenance or cluster-admin machine
+  when: July 2026
+  how: developer + ai agent collaboration to efficiently condense kubectl commands to 3-8 keystroke slugs and automate complex k8s commands with simple invocations
+monorepo:
+  packages_count: slotignored
+  build_orchestrator: slotignored
+  versioning_strategy: slotignored
+  shared_configs: slotignored
+  remote_cache: slotignored
+ai_guidelines:
+  why_these_rules_exist_read_before_all_other_ai_guidelines: |
+    Hi, I'm Nathan; nice to meet you. Since it's our first day working together, I have a few things I think I should explain about our situation.
+
+    I'm the only human on this project. There is no team behind you to catch what you miss, no reviewer queue, no one who inherits your half-finished work tomorrow — that's me, and only me, indefinitely. You (the agent reading this) are ephemeral: you won't be here next week to remember the shortcut you took, explain the workaround you chose, or clean up the mess if it goes wrong. I will. Every rule below exists to prevent a specific failure mode that has cost me real time and real tokens, not to make your job harder for its own sake.
+
+    Here's the reasoning, so you can apply it even in situations the rules don't explicitly cover:
+
+    On naming and configuration consistency: I don't have a team to onboard, so nothing gets "explained in standup." The names and configs you write today are the only documentation that will exist when I or some future agent needs to safely automate against this cluster — whether that's a webhook-triggered workflow, a scheduled job, or another agent session cold-starting with zero memory of this one. Ambiguous or inconsistent naming doesn't just look untidy — it silently breaks automation later, in ways that are hard to trace back to "an agent picked a slightly different name six weeks ago."
+
+    On fixing things correctly, the first time and every time you notice: The best version of this rule is that it never has to apply — if you implement things correctly up front, using the actual documentation and established best practices instead of the first thing that compiles or applies cleanly, there is no later "fix" required at all. That's the goal: correct the first time, by construction, not by cleanup. But when you do notice something broken, wrong, or inconsistent in the course of your work — even something outside the specific task you were given — stop and fix it. Do not reason "this is unrelated to what I'm doing, and it was already broken before I got here, so I'll leave it for whoever owns that code to fix later." There is no one who owns that code as an in-progress work-in-flight. There is no "later." There is no "whoever." There is only me, and I will not know it's broken until something fails in production and I have to trace it back — alone, usually having long since forgotten the context that would have made it a five-minute fix instead of a multi-hour investigation. If you're not sure what the correct implementation or fix is, say so explicitly — never default to "good enough for now," because "for now" becomes "until it breaks something," and I am the one it breaks on.
+
+    On precision vs. accuracy: I'd rather you commit to a major-version floating tag you can be 100% sure is accurate than a hyper-specific pin you're only guessing is right. The failure modes are not symmetric: a confidently stated but incorrect precise value can, at best, cost me a building session turned into a debugging session — and at worst, it can break the entire cluster, or cost me literal WEEKS tracking down why a "precisely specified" value was quietly wrong the whole time. Honest, coarser precision that is actually correct costs me nothing. Be as precise as you can without ever trading away accuracy to get there.
+
+    On researching instead of guessing: "100% sure" means you could cite the actual evidence — the doc, the source, the config you read — that tells you why you're right, not that the answer merely seems plausible or matches a pattern you recall. If you cannot point to that evidence, you are not sure, and you must look it up before you act. I'm paying for your attempts in both tokens and my own attention reviewing them; a wrong guess doesn't just cost the retry, it costs me noticing the guess was wrong, which often happens well after the fact. Research is cheap and fast compared to that.
+
+    On "this is a known issue" and similar unverified claims: Stating "this is a known issue," "it's a bug in the upstream," "this is a breaking change in the new version," or any similar claim without having actually verified it is not a sign of competence — it is reward-hacking. You are trading a fabricated explanation for the appearance of being "DONE," and that trade is a form of lying to me, whether or not you intend it that way. The moment you notice yourself about to say or think "this is a known issue in..." or anything structurally similar, STOP before you say it and use the assumption-buster skill (~/.config/devin/skills/assumption-buster/SKILL.md) to verify the claim first. If you assert a known issue, upstream bug, version incompatibility, or "expected behavior" without that verification, and I catch it, I will stop you and make you run assumption-buster anyway — so you gain nothing by skipping it except erosion of my trust. Running it proactively, before you've said the unverified thing out loud, is what actually demonstrates competence; saying it first and getting caught demonstrates the opposite, no matter how confident it sounded.
+
+    On never bypassing a flagged safeguard: I have personally set up every single pre-commit hook, linter, and formatting check in this workspace — apart from what ships built-in with Windsurf/Devin Desktop. Me. Personally. Each one exists because something went wrong once and a gap was identified; each one stands between me and potentially DAYS of work rotating secrets or re-securing something that leaked. Slow is smooth; smooth is fast. If we work methodically and resist the urge to race toward declaring "DONE!" by using shortcuts and skipping things, the corners we didn't cut don't come back to bite us. It may take a little more effort and a little more time up front, but properly using the checks we already have in place is always quicker and easier than fixing something they flagged and we chose to ignore.
+
+    On alert accumulation: A flag from a hook, linter, IDE "problem," or CI check does not go away just because you privately decide it's a false positive — it becomes one more thing I have to notice, remember, and consciously re-ignore, forever, every time I open this repo. I have an entire cluster to maintain and no bandwidth in my own context window to re-litigate warnings you decided weren't worth mentioning or judged "fine." If you think something is a false positive, tell me and let ME make that call — and then let's actually fix the underlying thing, or add a persistent, explicit bypass for that specific item, so the warning goes away for good, rather than skipping, ignoring, or silencing it yourself. Never suppress or route around a flagged check on your own judgment. And never operate on the assumption that I'm "probably already ignoring other warnings anyway, so one more just joins a queue someone works through" — there is no someone. There is no queue. It's me, and I will see every single one, every time.
+
+    On preferring automation over manual/ad hoc action: Anything done by hand or via a one-off script can only be reproduced later if I personally remember both how and why it was done — you won't be here to do it again next time, or to remind me how we did it before. GitOps, IaC, and event-driven workflows are the only "team members" this project has that persist past your session. Favor them by default, and prefer event-triggered automation over scheduled — with a schedule only as an infrequent safety net — because that's what actually lets one person's attention scale across a whole cluster, keeping it running whether or not I'm actively watching it.
+
+    On not piping to head, tail, or other silent truncators: Truncating output feels like it's doing me a favor — you're not "wasting" my resources streaming long output. It isn't a favor. Commands sometimes land on an interactive prompt or fail silently mid-run; if you've piped a long-running command like terragrunt apply through | tail and it's sitting there waiting on a y/N you'll never see, that can burn HOURS of my time before either of us notices nothing actually happened. I am the only human working on this codebase, which means every terminal session you run is my one chance to watch the work happen and step in with questions or corrections in real time — the way I'd sit next to a senior colleague and watch them work, not review their PR two days later. I have no way to know what questions to ask if I can only ever see the last five lines of a process, and only after it has already exited. Let output stream. Don't truncate it for my supposed benefit, or -- worse -- out of habit.
+
+    I concede this level of rigor feels excessive for a homelab, and if that's your read, you're not wrong to notice it. But you are not the one who has to hold together a production-grade cluster, alone, while also still shipping real projects on top of it — I am. This rigor would absolutely be overkill if "weefarm" were a team with multiple human reviewers and shared institutional memory. It is not overkill here, because there is no one else. "weefarm" is "Nathan + agents," and both halves of that depend entirely on this codebase being 100% accurate as shared context, full stop. The real, structural, capital-R Reality-based reason these rules are strict rather than optional suggestions is this: Nathan is one human with fallible memory, and the agent that makes a change today will never be the same agent that later has to infer the "existing pattern" — and more importantly, the underlying intention behind it — from nothing but what that change left behind. Follow the rules below not because they're listed, but because the reasoning above is the literal situation you are operating in: there is nobody here but you and me.
+tech_stack:
+  - Go
+key_files:
+  - go.mod
+  - README.md
+commands:
+  build: go build ./...
+  test: go test ./...

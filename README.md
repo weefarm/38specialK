@@ -4,7 +4,7 @@ Reduce wasted keystrokes interacting with Kubernetes.
 
 `kclo o` instead of `kubectl get pods -n cloudflare -o wide`.
 
-`kclo rf deployment cloudflared-dex` instead of the finalizer patch incantation.
+`kclo rmf deployment cloudflared-dex` instead of the finalizer patch incantation.
 
 ## What it does
 
@@ -15,8 +15,8 @@ each map to a Kubernetes namespace and dispatch to `kubectl` with the right
 | Verb | Meaning |
 |------|---------|
 | `o`  | `-o wide` (or custom `-o` format if more args follow) |
-| `gf` | list resources with finalizers set in the namespace |
-| `rf` | strip finalizers from a resource so it can finish deleting |
+| `lsf` | list resources with finalizers set in the namespace |
+| `rmf` | strip finalizers from a resource so it can finish deleting |
 
 Anything else is passed straight to `kubectl -n <ns>`, so `kclo delete pod foo`
 and `kclo get deploy` work exactly as you'd expect.
@@ -140,15 +140,15 @@ kclo o          # kubectl get pods -n cloudflare -o wide
 kclo o yaml     # kubectl get pods -n cloudflare -o yaml
 ```
 
-### `gf` — get finalizers
+### `lsf` — list finalizers
 
 Lists every resource in the namespace that has `metadata.finalizers` set.
 Output: `Kind/name\t[finalizers...]`.
 
 ```
-kclo gf         # scan cloudflare namespace for finalizers
-kall gf         # whole-cluster scan (all namespaces + cluster-scoped)
-gf              # prints usage (footgun guard — too easy to fire by accident)
+kclo lsf         # scan cloudflare namespace for finalizers
+kall lsf         # whole-cluster scan (all namespaces + cluster-scoped)
+lsf              # prints usage (footgun guard — too easy to fire by accident)
 ```
 
 The scan covers a curated type list: pods, deployments, statefulsets,
@@ -160,19 +160,24 @@ for finalizers on ingress objects catches cases where an AI agent (or a
 distracted human) has added an ingress-type object that the Gateway API
 controller doesn't reconcile, leaving it stuck terminating.
 
-### `rf` — remove finalizers
+### `rmf` — remove finalizers
 
 Patches `metadata.finalizers` to `null` so a stuck resource can finish
 terminating. NOT filtered even on filtered slugs — patching is a deliberate
 act and grep would obscure the target.
 
+A **confirmation prompt** gates the actual dispatch: the user is asked
+"Are you sure you want to remove finalizers from ...?" and must type `y` or
+`yes` to proceed. Anything else cancels the operation. The prompt is skipped
+in `--dry-run` mode.
+
 ```
-kclo rf deployment foo           # patch deployment/foo in cloudflare
-kclo rf deployment foo bar       # patch multiple
-kclo rf deployment/foo           # type/name single-arg form
+kclo rmf deployment foo           # patch deployment/foo in cloudflare
+kclo rmf deployment foo bar       # patch multiple
+kclo rmf deployment/foo           # type/name single-arg form
 ```
 
-`kall rf` is intentionally unsupported — patching across namespaces is too
+`kall rmf` is intentionally unsupported — patching across namespaces is too
 easy to misfire. Use a namespace-scoped slug instead.
 
 ## Alternate invocation: `skd`
@@ -182,7 +187,7 @@ easy to misfire. Use a namespace-scoped slug instead.
 ```
 skd clo            # == kclo  == sk dispatch clo
 skd clo o          # == kclo o
-skd clo rf deployment foo
+skd clo rmf deployment foo
 ```
 
 Useful if you prefer an explicit command form over the generated `k<slug>`

@@ -5,16 +5,16 @@
 //	sk dispatch <slug>               -> kubectl get pods -n <ns>
 //	sk dispatch <slug> o             -> kubectl get pods -n <ns> -o wide
 //	sk dispatch <slug> o yaml        -> kubectl get pods -n <ns> -o yaml
-//	sk dispatch <slug> gf            -> list resources with finalizers in <ns>
-//	sk dispatch <slug> rf <type> <name> [name...]  -> strip finalizers
-//	sk dispatch <slug> rf <type/name>              -> strip finalizers (single-arg form)
+//	sk dispatch <slug> lsf            -> list resources with finalizers in <ns>
+//	sk dispatch <slug> rmf <type> <name> [name...]  -> strip finalizers
+//	sk dispatch <slug> rmf <type/name>              -> strip finalizers (single-arg form)
 //	sk dispatch <slug> <anything else>             -> kubectl -n <ns> <anything else>
 //
 // For filtered slugs (kcil/kenv style), the default listing and its -o
 // variant are piped through grep; everything else passes through unfiltered.
 //
-// The all-namespaces slug (default "all") supports `o` and `gf` but NOT
-// `rf` — patching across namespaces is too easy to misfire.
+// The all-namespaces slug (default "all") supports `o` and `lsf` but NOT
+// `rmf` — patching across namespaces is too easy to misfire.
 //
 // Users typically invoke the generated shell functions (kclo, ksys, ...),
 // but may also use `skd <slug>` if they install the optional `skd` alias
@@ -22,6 +22,7 @@
 package dispatch
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,7 +31,7 @@ import (
 	"github.com/weefarm/38specialK/internal/config"
 )
 
-// finTypesNS is the curated list of namespaced resource types scanned by gf.
+// finTypesNS is the curated list of namespaced resource types scanned by lsf.
 // Kept short for speed and predictability; edit here to add/remove types.
 //
 // ingress is included deliberately: on clusters using Cilium Gateway API
@@ -51,7 +52,7 @@ var finTypesNS = []string{
 	"secrets",
 }
 
-// finTypesCluster is the curated list of cluster-scoped types scanned by gf.
+// finTypesCluster is the curated list of cluster-scoped types scanned by lsf.
 var finTypesCluster = []string{
 	"namespaces",
 	"persistentvolumes",
@@ -96,11 +97,11 @@ func dispatchNS(name, ns string, filtered *config.FilteredSlug, args []string, o
 		}
 		return runFilteredPipe(filtered, append([]string{"get", "pods", "-n", ns, "-o"}, rest...), opts)
 
-	case "gf":
+	case "lsf":
 		// List resources with finalizers in this namespace.
 		return listFinalizersNS(ns, opts)
 
-	case "rf":
+	case "rmf":
 		// Strip finalizers. NOT filtered even for filtered slugs —
 		// patching is a deliberate act and grep would obscure the target.
 		return stripFinalizersNS(name, ns, rest, opts)
@@ -112,7 +113,7 @@ func dispatchNS(name, ns string, filtered *config.FilteredSlug, args []string, o
 }
 
 // dispatchAll handles the all-namespaces slug.
-// `rf` is intentionally unsupported here — patching across namespaces is
+// `rmf` is intentionally unsupported here — patching across namespaces is
 // too easy to misfire. Use a namespace-scoped slug instead.
 func dispatchAll(args []string, opts Options) error {
 	if len(args) == 0 {
@@ -129,13 +130,13 @@ func dispatchAll(args []string, opts Options) error {
 		}
 		return runKubectl(append([]string{"get", "pods", "--all-namespaces", "-o"}, rest...), opts)
 
-	case "gf":
+	case "lsf":
 		return listFinalizersAll(opts)
 
-	case "rf":
-		fmt.Fprintln(os.Stderr, "rf is intentionally not supported on the all-namespaces slug.")
-		fmt.Fprintln(os.Stderr, "Use a namespace-scoped slug instead (e.g. sk dispatch clo rf deployment foo).")
-		return fmt.Errorf("rf on all-namespaces is unsafe")
+	case "rmf":
+		fmt.Fprintln(os.Stderr, "rmf is intentionally not supported on the all-namespaces slug.")
+		fmt.Fprintln(os.Stderr, "Use a namespace-scoped slug instead (e.g. sk dispatch clo rmf deployment foo).")
+		return fmt.Errorf("rmf on all-namespaces is unsafe")
 
 	default:
 		return runKubectl(args, opts)
@@ -170,15 +171,40 @@ func listFinalizersAll(opts Options) error {
 	return nil
 }
 
+// confirmRmf prompts the user for confirmation before stripping finalizers.
+// Returns true if the user typed "y" or "yes", false otherwise.
+// Skipped in DryRun mode (tests and preview).
+func confirmRmf(ns string, args []string, opts Options) bool {
+	if opts.DryRun {
+		return true
+	}
+	fmt.Printf("Are you sure you want to remove finalizers from %s in namespace %s? [y/N] ", strings.Join(args, " "), ns)
+	reader := bufio.NewReader(os.Stdin)
+	resp, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	resp = strings.TrimSpace(strings.ToLower(resp))
+	return resp == "y" || resp == "yes"
+}
+
 // stripFinalizersNS patches finalizers to null on one or more resources.
 //
-//	sk dispatch clo rf deployment foo           -> patch deployment/foo
-//	sk dispatch clo rf deployment foo bar baz  -> patch each name
-//	sk dispatch clo rf deployment/foo          -> single type/name form
+//	sk dispatch clo rmf deployment foo           -> patch deployment/foo
+//	sk dispatch clo rmf deployment foo bar baz  -> patch each name
+//	sk dispatch clo rmf deployment/foo          -> single type/name form
+//
+// A confirmation prompt gates the actual dispatch — the user must type "y" or
+// "yes" to proceed; anything else cancels. The prompt is skipped in DryRun mode.
 func stripFinalizersNS(caller, ns string, args []string, opts Options) error {
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage: %s rf <type> <name> [name...]  |  %s rf <type/name>\n", caller, caller)
-		return fmt.Errorf("rf: missing arguments")
+		fmt.Fprintf(os.Stderr, "Usage: %s rmf <type> <name> [name...]  |  %s rmf <type/name>\n", caller, caller)
+		return fmt.Errorf("rmf: missing arguments")
+	}
+
+	if !confirmRmf(ns, args, opts) {
+		fmt.Fprintln(os.Stderr, "rmf: cancelled.")
+		return fmt.Errorf("rmf: cancelled by user")
 	}
 
 	// type/name single-arg form.
@@ -188,8 +214,8 @@ func stripFinalizersNS(caller, ns string, args []string, opts Options) error {
 	}
 
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s rf <type> <name> [name...]\n", caller)
-		return fmt.Errorf("rf: need at least <type> and <name>")
+		fmt.Fprintf(os.Stderr, "Usage: %s rmf <type> <name> [name...]\n", caller)
+		return fmt.Errorf("rmf: need at least <type> and <name>")
 	}
 
 	rtype := args[0]
@@ -219,7 +245,7 @@ func runKubectl(args []string, opts Options) error {
 }
 
 // runKubectlSilent runs kubectl with stdout to the terminal but stderr suppressed.
-// Used by gf scans so missing resource types don't clutter output.
+// Used by lsf scans so missing resource types don't clutter output.
 func runKubectlSilent(args []string, opts Options) error {
 	if opts.DryRun {
 		fmt.Printf("kubectl %s\n", strings.Join(args, " "))

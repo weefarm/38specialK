@@ -13,24 +13,24 @@
 #   kclo                       -> kubectl get pods -n cloudflare
 #   kclo o                     -> kubectl get pods -n cloudflare -o wide
 #   kclo o yaml                -> kubectl get pods -n cloudflare -o yaml
-#   kclo gf                    -> list resources with finalizers in cloudflare
-#   kclo rf deployment foo     -> strip finalizers from deployment/foo
-#   kclo rf deployment foo bar -> strip finalizers from multiple
-#   kclo rf deployment/foo     -> single type/name form
+#   kclo lsf                    -> list resources with finalizers in cloudflare
+#   kclo rmf deployment foo     -> strip finalizers from deployment/foo
+#   kclo rmf deployment foo bar -> strip finalizers from multiple
+#   kclo rmf deployment/foo     -> single type/name form
 #   kclo get deploy            -> kubectl -n cloudflare get deploy (pass-through)
 #   kclo delete pod foo        -> kubectl -n cloudflare delete pod foo (pass-through)
 #
 #   kcil                       -> kube-system pods | grep cilium (filtered)
 #   kcil o                     -> ... -o wide | grep cilium
-#   kcil rf pod foo            -> strip finalizers (NOT filtered — patching is deliberate)
+#   kcil rmf pod foo            -> strip finalizers (NOT filtered — patching is deliberate)
 #   kcil delete pod foo        -> pass-through (NOT filtered)
 #
 #   kall                       -> kubectl get pods --all-namespaces
 #   kall o                     -> ... -o wide
-#   kall gf                    -> whole-cluster finalizer scan
-#   kall rf ...                -> INTENTIONALLY UNSUPPORTED (too easy to misfire)
+#   kall lsf                    -> whole-cluster finalizer scan
+#   kall rmf ...                -> INTENTIONALLY UNSUPPORTED (too easy to misfire)
 #
-#   gf                         -> prints usage (footgun guard)
+#   lsf                         -> prints usage (footgun guard)
 
 declare -A K8S_NS_SLUGS=()
 
@@ -71,11 +71,11 @@ _k8s_list_finalizers() {
   done
 }
 
-# Whole-cluster finalizer scan is intentionally NOT bound to bare `gf` —
-# too easy to fire by accident. Use `kall gf` for that.
-gf(){
-  echo "Usage: kall gf                       (whole-cluster scan)" >&2
-  echo "       k<slug> gf                    (e.g. kclo gf — single namespace)" >&2
+# Whole-cluster finalizer scan is intentionally NOT bound to bare `lsf` —
+# too easy to fire by accident. Use `kall lsf` for that.
+lsf(){
+  echo "Usage: kall lsf                       (whole-cluster scan)" >&2
+  echo "       k<slug> lsf                    (e.g. kclo lsf — single namespace)" >&2
   return 1
 }
 
@@ -104,13 +104,18 @@ kubectl_slug() {
   fi
 
   # Strip finalizers from a resource so it can finish deleting.
-  #   kclo rf deployment cloudflared-dex   -> patch deployment/cloudflared-dex
-  #   kclo rf pod foo bar                  -> patch multiple names
-  #   kclo rf deployment/cloudflared-dex   -> type/name single-arg form
-  if [[ $1 == rf ]]; then
+  #   kclo rmf deployment cloudflared-dex   -> patch deployment/cloudflared-dex
+  #   kclo rmf pod foo bar                  -> patch multiple names
+  #   kclo rmf deployment/cloudflared-dex   -> type/name single-arg form
+  if [[ $1 == rmf ]]; then
     shift
     if [[ $# -lt 1 ]]; then
-      echo "Usage: $caller rf <type> <name> [name...]  |  $caller rf <type/name>" >&2
+      echo "Usage: $caller rmf <type> <name> [name...]  |  $caller rmf <type/name>" >&2
+      return 1
+    fi
+    read -rp "Are you sure you want to remove finalizers from $* in namespace $namespace? [y/N] " ans
+    if [[ "${ans,,}" != "y" && "${ans,,}" != "yes" ]]; then
+      echo "rmf: cancelled." >&2
       return 1
     fi
     if [[ $# -eq 1 && "$1" == */* ]]; then
@@ -119,7 +124,7 @@ kubectl_slug() {
       return
     fi
     if [[ $# -lt 2 ]]; then
-      echo "Usage: $caller rf <type> <name> [name...]" >&2
+      echo "Usage: $caller rmf <type> <name> [name...]" >&2
       return 1
     fi
     local rtype="$1"; shift
@@ -132,8 +137,8 @@ kubectl_slug() {
   fi
 
   # List resources in this namespace that currently have finalizers set.
-  #   kclo gf   -> scan cloudflare namespace for finalizers
-  if [[ $1 == gf ]]; then
+  #   kclo lsf   -> scan cloudflare namespace for finalizers
+  if [[ $1 == lsf ]]; then
     _k8s_list_finalizers "$namespace"
     return
   fi
@@ -194,7 +199,7 @@ add_k8s_slug krc rook-ceph
 king(){ kubectl get ingress --all-namespaces "$@"; }
 
 # Like kubectl_slug but applies a grep filter ONLY to the default pod listing
-# (and its `o` variant). Everything else (rf, delete, get deploy, ...) passes
+# (and its `o` variant). Everything else (rmf, delete, get deploy, ...) passes
 # through to kubectl unfiltered so the slug works like the namespace ones.
 kubectl_filtered_ns() {
   local namespace="$1" pattern="$2"
@@ -216,10 +221,15 @@ kubectl_filtered_ns() {
     return
   fi
 
-  if [[ $1 == rf ]]; then
+  if [[ $1 == rmf ]]; then
     shift
     if [[ $# -lt 1 ]]; then
-      echo "Usage: $caller rf <type> <name> [name...]  |  $caller rf <type/name>" >&2
+      echo "Usage: $caller rmf <type> <name> [name...]  |  $caller rmf <type/name>" >&2
+      return 1
+    fi
+    read -rp "Are you sure you want to remove finalizers from $* in namespace $namespace? [y/N] " ans
+    if [[ "${ans,,}" != "y" && "${ans,,}" != "yes" ]]; then
+      echo "rmf: cancelled." >&2
       return 1
     fi
     if [[ $# -eq 1 && "$1" == */* ]]; then
@@ -228,7 +238,7 @@ kubectl_filtered_ns() {
       return
     fi
     if [[ $# -lt 2 ]]; then
-      echo "Usage: $caller rf <type> <name> [name...]" >&2
+      echo "Usage: $caller rmf <type> <name> [name...]" >&2
       return 1
     fi
     local rtype="$1"; shift
@@ -240,7 +250,7 @@ kubectl_filtered_ns() {
     return
   fi
 
-  if [[ $1 == gf ]]; then
+  if [[ $1 == lsf ]]; then
     _k8s_list_finalizers "$namespace"
     return
   fi
@@ -251,8 +261,8 @@ kubectl_filtered_ns() {
 kcil(){ kubectl_filtered_ns kube-system cilium "$@"; }
 kenv(){ kubectl_filtered_ns kube-system envoy "$@"; }
 
-# All-namespaces variant. Only `o` (-> -o wide), `gf` (whole-cluster
-# finalizer scan), and raw pass-through; no `rf` here on purpose — patching
+# All-namespaces variant. Only `o` (-> -o wide), `lsf` (whole-cluster
+# finalizer scan), and raw pass-through; no `rmf` here on purpose — patching
 # across namespaces is too easy to misfire.
 kall(){
   if [[ $# -eq 0 ]]; then
@@ -268,7 +278,7 @@ kall(){
     fi
     return
   fi
-  if [[ $1 == gf ]]; then
+  if [[ $1 == lsf ]]; then
     _k8s_list_finalizers ""
     return
   fi

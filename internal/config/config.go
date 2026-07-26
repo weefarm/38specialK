@@ -37,7 +37,7 @@ var slugNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 
 // FilteredSlug is a namespace slug that applies a grep filter to the
 // default pod listing (and its -o wide variant), while passing everything else
-// (rf, delete, get deploy, ...) straight through to kubectl unfiltered.
+// (rmf, delete, get deploy, ...) straight through to kubectl unfiltered.
 //
 // Example: cil -> { ns: kube-system, grep: cilium }
 type FilteredSlug struct {
@@ -216,7 +216,7 @@ func ExampleConfig() *Config {
 			"def":  "default",
 			"argo": "argocd",
 			"cert": "cert-manager",
-			"rc":   "rook-ceph",
+			"roo":  "rook-ceph",
 		},
 		Filtered: map[string]FilteredSlug{
 			"cil": {NS: "kube-system", Grep: "cilium"},

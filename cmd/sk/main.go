@@ -47,8 +47,8 @@ the namespace).
 
 Verbs (handled by the dispatcher, not kubectl):
   o    -o wide (or custom -o format if more args follow)
-  gf   list resources with finalizers set in the namespace
-  rf   strip finalizers from a resource so it can finish deleting
+  lsf   list resources with finalizers set in the namespace
+  rmf   strip finalizers from a resource so it can finish deleting
 
 Anything else is passed through to kubectl -n <ns>.`,
 	}
@@ -85,10 +85,10 @@ emitted by ` + "`sk install`" + ` to do ` + "`skd clo`" + ` instead of ` + "`kcl
 Examples:
   sk dispatch clo                 # kubectl get pods -n cloudflare
   sk dispatch clo o               # kubectl get pods -n cloudflare -o wide
-  sk dispatch clo gf              # list resources with finalizers in cloudflare
-  sk dispatch clo rf deployment foo  # strip finalizers from deployment/foo
+  sk dispatch clo lsf              # list resources with finalizers in cloudflare
+  sk dispatch clo rmf deployment foo  # strip finalizers from deployment/foo
   sk dispatch clo get deploy      # kubectl -n cloudflare get deploy
-  sk dispatch all gf              # whole-cluster finalizer scan
+  sk dispatch all lsf              # whole-cluster finalizer scan
   sk dispatch cil                 # filtered: kube-system pods | grep cilium`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

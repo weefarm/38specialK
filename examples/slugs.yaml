@@ -55,7 +55,7 @@ slugs:
   red: redis
 
 # Filtered slugs: apply a grep filter to the default pod listing
-# (and its -o variant), while passing everything else (rf, delete, get
+# (and its -o variant), while passing everything else (rmf, delete, get
 # deploy, ...) straight through to kubectl unfiltered.
 # Generated shell function is k<name> (e.g. kcil).
 filtered:
