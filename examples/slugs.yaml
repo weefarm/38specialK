@@ -1,0 +1,76 @@
+# 38specialK slugs config — reference example.
+# Copy to ~/.config/sk/slugs.yaml and edit to match your namespaces.
+#
+# Slug names must be 3-8 chars (lowercase alphanumeric, leading letter).
+# Set allowShorter/allowLonger: true to override the length checks.
+#
+# Terminology: a "slug" is a namespace alias. `kclo` is the bullet you fire;
+# `clo` is the slug (the projectile that hits the namespace). The `k` prefix is the powder (the propellant);
+# the slug is the namespace it dispatches to.
+
+# Plain slugs: slug name -> namespace.
+# Generated shell function is k<name> (e.g. kclo).
+slugs:
+  clo: cloudflare
+  cwa: calibre-cwa
+  gol: goldilocks
+  hat: hatchet
+  cert: cert-manager
+  cnpg: cnpg
+  argo: argocd
+  inf: infisical
+  lin: linear
+  graf: grafana
+  tempo: tempo
+  tem: temporal
+  wf: temporal          # wf and tem both point to temporal; pick whichever you remember
+  zot: zot
+  def: default
+  for: forgejo
+  fal: falco
+  met: metrics-exporters
+  car: caretta
+  obi: obi
+  otel: opentelemetry
+  tet: tetragon
+  pyr: pyroscope
+  lok: loki
+  alloy: alloy
+  por: portainer
+  olm: olm
+  vic: victoriametrics
+  vel: velero
+  ren: renovate
+  rce: rook-ceph-external
+  rc: rook-ceph
+  sys: kube-system
+  pub: kube-public
+  lease: kube-node-lease
+  px: pxe-boot
+  flowd: kflowd
+  tfstate: tofu-state
+  hom: homarr
+  img: image-pull
+  dex: auth
+  red: redis
+
+# Filtered slugs: apply a grep filter to the default pod listing
+# (and its -o variant), while passing everything else (rf, delete, get
+# deploy, ...) straight through to kubectl unfiltered.
+# Generated shell function is k<name> (e.g. kcil).
+filtered:
+  cil:
+    ns: kube-system
+    grep: cilium
+  env:
+    ns: kube-system
+    grep: envoy
+
+# Name of the all-namespaces slug. Generated function is k<name>.
+allSlug: all
+
+# Length check overrides (defaults: min 3, max 8).
+# This reference config keeps a couple of 2-char slugs (wf, rc) from
+# the original bash version, so we relax the minimum.
+allowShorter: true
+# allowLonger: true     # allow 9+ char slugs
