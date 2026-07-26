@@ -33,11 +33,11 @@ and `kclo get deploy` work exactly as you'd expect.
   that (e.g. `sudo usermod -aG microk8s $USER` and re-login, or add
   `alias kubectl='sudo kubectl'` to your `~/.bashrc`) or use the bash
   reference (`bash/sk.sh`) which you can edit to prefix `sudo` where needed.
-- **Linux.** Tested on Ubuntu. The Go binary itself is cross-compilable, but
+- **Linux.** Tested on Ubuntu 26.04 LTS. The Go binary itself is cross-compilable, but
   the generated shell functions assume bash and the `complete` builtin, which
   is Linux/WSL territory. macOS *might* work with `bash-completion` installed
   (bash 3.2 ships with macOS and lacks `_init_completion`; the completion
-  block degrades gracefully but won't be as smart). Not tested on macOS.
+  block degrades gracefully but won't be as smart). Not tested on macOS thus far, but it probably will be eventually.
 - **bash** for the generated shell functions. zsh is not supported by the
   generated snippet (the `complete` builtin is bash-specific); if you're on
   zsh, use the Go binary directly via `skd <slug>` instead of the `k<slug>`
@@ -47,29 +47,31 @@ and `kclo get deploy` work exactly as you'd expect.
 
 ## Why "38specialK"?
 
-The name "38specialK" riffs on two things:
+Because it feels like a Wheel-of-Fortune _Before and After_ puzzle?
 
-1. **38 Special (the band? the handgun cartridge? both? neither? we don't know either.) and Special K (the cereal--most definitely the cereal)**
-   
-2. **The default 3-8 character length range for slug names** — 3-8 chars is
+- **38 Special** (the band? the handgun cartridge? both? neither? we don't know either...)
+
+- **Special K** (the cereal--most definitely the cereal).
+
+- **The default 3-8 character length range for slug names** — 3-8 chars is
    the sweet spot: short enough to type fast, long enough to be memorable and
-   unique. `k` is too short to be unambiguous; `cloudflared-dex` is too long
-   to type. The range is enforced by default and configurable
-   (`allowShorter`/`allowLonger` in the config).
+   unique.
+
+  `k` alone is too short to be unambiguous; `kubectl delete replicaset cloudflared-backchannel -n cloudflared-system` is too long
+   to type more often than the once I just did. The range is set as 3-8 characters by default, but can be overridden
+   (`allowShorter`/`allowLonger`) in the config.
 
 ## What's a "slug"?
 
 A **slug** is a namespace alias. The name plays on two things:
 
-- **A bullet has powder and a slug.** `kclo` is the bullet; `k` is the powder
-  (the propellant); `clo` is the slug (the projectile — the namespace alias
-  that gets fired at the target).
-- **The cereal tie-in** with Special K.
+- **A solid bullet has gunpowder and a slug.** `kclo` is the bullet; `k` is the gunpowder
+  (propellant); `clo` is the slug (projectile that ultimately interacts with the target).
 
 So when you type `kclo`, think: `k` is the powder, `clo` is the slug, and the
-whole thing is the bullet you fire at the cloudflare namespace.
+whole thing is the bullet you fire toward your cluster to make something happen.
 
-## Two ways to use it
+## Two ways to use it:
 
 ### 1. Go binary (recommended)
 
@@ -89,19 +91,21 @@ ksys(){ sk dispatch sys "$@"; }
 alias skd="sk dispatch"  # alternate invocation: skd clo == kclo
 ```
 
-All the dispatch smarts live in the binary; the shell functions are dumb pipes.
+All the dispatch logic lives in the binary; the shell functions are dumb pipes.
 This means tab completion, `--dry-run`, structured output, and tests come for
-free, and the logic isn't copy-pasted into every function.
+free, and there's no multi-line noise copy-pasted into every function to clutter
+your .profile or .bashrc.
 
 ### 2. Bash reference (no compilation)
 
 ```bash
 source bash/sk.sh             # from this repo
 ```
-
 `bash/sk.sh` is the v0 prototype the Go binary replaces. It works without
-compiling anything — just source it from your `~/.bashrc`. Edit the
-`add_k8s_slug` lines at the bottom to match your namespaces.
+compiling anything — just source it from your shell or as in include in your
+`~/.bashrc`. 
+
+Edit the `add_k8s_slug` lines at the bottom to assign slugs to your namespaces.
 
 ## Config file
 
@@ -118,7 +122,7 @@ filtered:                       # grep-filtered pod listings (kcil/kenv style)
     ns: kube-system
     grep: cilium
 
-allSlug: all                   # the all-namespaces slug name
+allSlug: all                   # the all-namespaces slug name; provides "kall" by default.  if you changed it to "any" then "kany" would correspond to "kubectl get pods --all-namespaces"
 
 allowShorter: true              # allow 1-2 char slugs (default: min 3)
 # allowLonger: true             # allow 9+ char slugs (default: max 8)
