@@ -49,8 +49,8 @@ and `kclo get deploy` work exactly as you'd expect.
 
 The name "38specialK" riffs on two things:
 
-1. **38 Special (the band) and Special K (the cereal)** — a classic-rock /
-   breakfast wordplay.
+1. **38 Special (the band? the handgun cartridge? both? neither? we don't know either.) and Special K (the cereal--most definitely the cereal)**
+   
 2. **The default 3-8 character length range for slug names** — 3-8 chars is
    the sweet spot: short enough to type fast, long enough to be memorable and
    unique. `k` is too short to be unambiguous; `cloudflared-dex` is too long
