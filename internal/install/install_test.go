@@ -1,6 +1,9 @@
 package install
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -210,5 +213,168 @@ func TestEmitRfCompletionTypes(t *testing.T) {
 		if !strings.Contains(out, typ) {
 			t.Errorf("expected completion to include resource type %q", typ)
 		}
+	}
+}
+
+// TestEmitValidBashSyntax runs `bash -n` on the emitted shell snippet to
+// verify it's syntactically valid bash. If the generated functions have a
+// syntax error, sourcing the snippet from ~/.bashrc would break the user's
+// shell — this test catches that before it ships.
+func TestEmitValidBashSyntax(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	cfg := &config.Config{
+		Slugs: map[string]string{
+			"clo":  "cloudflare",
+			"sys":  "kube-system",
+			"argo": "argocd",
+		},
+		Filtered: map[string]config.FilteredSlug{
+			"cil": {NS: "kube-system", Grep: "cilium"},
+		},
+		AllSlug: "all",
+	}
+
+	var buf strings.Builder
+	if err := Emit(cfg, &buf); err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+
+	// Write to a temp file and syntax-check with `bash -n`
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "slugs.sh")
+	if err := os.WriteFile(scriptPath, []byte(buf.String()), 0o644); err != nil {
+		t.Fatalf("write temp script: %v", err)
+	}
+
+	cmd := exec.Command("bash", "-n", scriptPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("emitted shell snippet has bash syntax errors: %v\noutput:\n%s", err, output)
+	}
+}
+
+// TestEmitValidBashSyntaxEmptyConfig verifies the snippet is valid bash even
+// with an empty config (no slugs, just the header, skd alias, kall, lsf
+// guard, and completion block).
+func TestEmitValidBashSyntaxEmptyConfig(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	cfg := &config.Config{AllSlug: "all"}
+	var buf strings.Builder
+	if err := Emit(cfg, &buf); err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "slugs.sh")
+	if err := os.WriteFile(scriptPath, []byte(buf.String()), 0o644); err != nil {
+		t.Fatalf("write temp script: %v", err)
+	}
+
+	cmd := exec.Command("bash", "-n", scriptPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("emitted shell snippet (empty config) has bash syntax errors: %v\noutput:\n%s", err, output)
+	}
+}
+
+// TestInitInstallFlow is an end-to-end test of the full install process:
+// WriteExample (sk init) → Load → Emit (sk install) → bash -n. This is the
+// exact sequence a user follows, and it verifies that the config written by
+// init is loadable by install, and that the resulting shell snippet is valid
+// bash. Regression guard for the install flow issues reported in #5.
+func TestInitInstallFlow(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	// Step 1: sk init — write a starter config to a temp dir
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, ".config", "sk", "slugs.yaml")
+	if err := config.WriteExample(cfgPath, false); err != nil {
+		t.Fatalf("WriteExample (sk init) failed: %v", err)
+	}
+
+	// Step 2: verify the config file has correct permissions (regression
+	// guard for the permission-denied issue from #5)
+	info, err := os.Stat(cfgPath)
+	if err != nil {
+		t.Fatalf("stat config file: %v", err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o644 {
+		t.Errorf("config file mode: expected 0o644, got 0o%o", mode)
+	}
+
+	// Step 3: sk install — load the config and emit the shell snippet
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load (sk install config read) failed: %v", err)
+	}
+
+	var buf strings.Builder
+	if err := Emit(cfg, &buf); err != nil {
+		t.Fatalf("Emit (sk install) failed: %v", err)
+	}
+	out := buf.String()
+
+	// Step 4: verify the emitted snippet is valid bash
+	scriptPath := filepath.Join(dir, "slugs.sh")
+	if err := os.WriteFile(scriptPath, []byte(out), 0o644); err != nil {
+		t.Fatalf("write temp script: %v", err)
+	}
+	cmd := exec.Command("bash", "-n", scriptPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("emitted shell snippet has bash syntax errors: %v\noutput:\n%s", err, output)
+	}
+
+	// Step 5: verify the snippet contains functions for the example slugs
+	// (confirms the config round-tripped correctly through the full flow)
+	expectedFunctions := []string{
+		"kall(){ sk dispatch all \"$@\"; }",
+		"kclo(){ sk dispatch clo \"$@\"; }",
+		"ksys(){ sk dispatch sys \"$@\"; }",
+		`alias skd="sk dispatch"`,
+	}
+	for _, fn := range expectedFunctions {
+		if !strings.Contains(out, fn) {
+			t.Errorf("expected emitted snippet to contain %q", fn)
+		}
+	}
+}
+
+// TestInitInstallFlowIdempotent verifies that re-running the init→install
+// flow produces the same output. The convenience install script from #5
+// must be safe to re-run, and this test confirms the underlying flow is
+// deterministic across invocations.
+func TestInitInstallFlowIdempotent(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	emit := func() string {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "slugs.yaml")
+		if err := config.WriteExample(cfgPath, false); err != nil {
+			t.Fatalf("WriteExample failed: %v", err)
+		}
+		cfg, err := config.Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+		var buf strings.Builder
+		if err := Emit(cfg, &buf); err != nil {
+			t.Fatalf("Emit failed: %v", err)
+		}
+		return buf.String()
+	}
+
+	first := emit()
+	second := emit()
+
+	if first != second {
+		t.Error("expected identical output across two init→install runs")
 	}
 }
