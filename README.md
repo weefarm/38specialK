@@ -63,13 +63,7 @@ Because it feels like a Wheel-of-Fortune _Before and After_ puzzle?
 
 ## What's a "slug"?
 
-A **slug** is a namespace alias. The name plays on two things:
-
-- **A solid bullet has gunpowder and a slug.** `kclo` is the bullet; `k` is the gunpowder
-  (propellant); `clo` is the slug (projectile that ultimately interacts with the target).
-
-So when you type `kclo`, think: `k` is the powder, `clo` is the slug, and the
-whole thing is the bullet you fire toward your cluster to make something happen.
+A **slug** is a short namespace alias. `kclo` dispatches to the `cloudflare` namespace — `k` is the prefix, `clo` is the slug.
 
 ## Two ways to use it:
 

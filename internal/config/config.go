@@ -4,13 +4,11 @@
 // short names (3-8 chars) to Kubernetes namespaces, plus optional "filtered"
 // slugs that grep the default pod listing (the kcil/kenv pattern).
 //
-// Terminology: a "slug" is a namespace alias. The name plays on two things:
-//   - a bullet has powder and a slug; `kclo` is the bullet you fire, `clo`
-//     is the slug (the projectile that hits the namespace)
-//   - the cereal tie-in with "Special K"
+// Terminology: a "slug" is a short namespace alias. `kclo` dispatches to the
+// `cloudflare` namespace — `k` is the prefix, `clo` is the slug. The name also
+// nods to Special K (the cereal) and the default 3-8 character slug length.
 //
-// The `k` prefix on a generated shell function is the powder; the slug
-// is the namespace alias it dispatches to.
+// The `k` prefix is constant; the slug is the namespace alias it dispatches to.
 package config
 
 import (
@@ -246,9 +244,8 @@ func WriteExample(path string, force bool) error {
 		"# Slug names must be 3-8 chars (lowercase alphanumeric, leading letter).\n" +
 		"# Set allowShorter/allowLonger: true to override the length checks.\n" +
 		"#\n" +
-		"# Terminology: a 'slug' is a namespace alias. `kclo` is the bullet you\n" +
-		"# fire; `clo` is the slug (the projectile that hits the namespace). The `k` prefix is the\n" +
-		"# powder (the propellant); the slug is the namespace it dispatches to.\n\n")
+		"# Terminology: a 'slug' is a short namespace alias. `kclo` dispatches to\n" +
+		"# the `cloudflare` namespace — `k` is the prefix, `clo` is the slug.\n\n")
 	if err := os.WriteFile(path, append(header, data...), 0o644); err != nil {
 		return fmt.Errorf("write config %s: %w", path, err)
 	}

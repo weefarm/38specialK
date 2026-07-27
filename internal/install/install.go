@@ -48,9 +48,8 @@ func Emit(cfg *config.Config, w io.Writer) error {
 # Source this from your ~/.bashrc (or ~/.zshrc) to get slug functions.
 # Re-run ` + "`sk install`" + ` after editing ~/.config/sk/slugs.yaml.
 #
-# Terminology: a "slug" is a namespace alias. ` + "`kclo`" + ` is the bullet
-# you fire; ` + "`clo`" + ` is the slug (the projectile that hits the namespace). The ` + "`k`" + ` prefix
-# is the powder; the slug is the namespace it dispatches to.
+# Terminology: a "slug" is a short namespace alias. ` + "`kclo`" + ` dispatches to
+# the ` + "`cloudflare`" + ` namespace — ` + "`k`" + ` is the prefix, ` + "`clo`" + ` is the slug.
 `
 	if _, err := fmt.Fprintln(w, header); err != nil {
 		return err

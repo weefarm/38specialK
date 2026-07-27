@@ -5,9 +5,8 @@
 # The Go binary (`sk install`) generates a thinner version of this that
 # delegates back to `sk dispatch` for all the smarts.
 #
-# Terminology: a "slug" is a namespace alias. `kclo` is the bullet; `k` is the
-# powder (the propellant); `clo` is the slug (the projectile that hits the
-# namespace).
+# Terminology: a "slug" is a short namespace alias. `kclo` dispatches to the
+# `cloudflare` namespace — `k` is the prefix, `clo` is the slug.
 #
 # Behavior:
 #   kclo                       -> kubectl get pods -n cloudflare
