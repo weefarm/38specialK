@@ -444,6 +444,126 @@ func TestDefaultPathFallback(t *testing.T) {
 	}
 }
 
+// TestWriteExampleFilePermissions verifies that the config file is created
+// with mode 0o644 (user-readable and user-writable). This is a regression
+// guard for the permission-denied issue reported in #5, where the config
+// file ended up unreadable/unwritable by the user after install.
+func TestWriteExampleFilePermissions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "slugs.yaml")
+
+	if err := WriteExample(path, false); err != nil {
+		t.Fatalf("WriteExample failed: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat config file: %v", err)
+	}
+
+	mode := info.Mode().Perm()
+	if mode != 0o644 {
+		t.Errorf("expected config file mode 0o644, got 0o%o", mode)
+	}
+}
+
+// TestWriteExampleDirPermissions verifies that the parent directory is
+// created with mode 0o755 (user-readable, user-writable, user-executable).
+// Without an executable+readable parent dir, the user can't access the file
+// inside it even if the file itself has correct permissions.
+func TestWriteExampleDirPermissions(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "nested", "config", "sk")
+	path := filepath.Join(subdir, "slugs.yaml")
+
+	if err := WriteExample(path, false); err != nil {
+		t.Fatalf("WriteExample failed: %v", err)
+	}
+
+	info, err := os.Stat(subdir)
+	if err != nil {
+		t.Fatalf("stat config dir: %v", err)
+	}
+
+	mode := info.Mode().Perm()
+	if mode != 0o755 {
+		t.Errorf("expected config dir mode 0o755, got 0o%o", mode)
+	}
+}
+
+// TestWriteExampleFileIsWritable verifies that the config file can be opened
+// for writing after WriteExample creates it. This is the direct regression
+// test for the "Permission denied" error from #5 — if the file can't be
+// opened for writing by the same process that created it, the user can't
+// edit it with $EDITOR either.
+func TestWriteExampleFileIsWritable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "slugs.yaml")
+
+	if err := WriteExample(path, false); err != nil {
+		t.Fatalf("WriteExample failed: %v", err)
+	}
+
+	// Should be able to open the file for writing (simulates $EDITOR)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		t.Fatalf("config file not writable after WriteExample: %v", err)
+	}
+	f.Close()
+}
+
+// TestWriteExampleFileIsReadable verifies that the config file can be read
+// back after creation. Paired with the writability test, this confirms the
+// file is accessible to the user — the core expectation broken in #5.
+func TestWriteExampleFileIsReadable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "slugs.yaml")
+
+	if err := WriteExample(path, false); err != nil {
+		t.Fatalf("WriteExample failed: %v", err)
+	}
+
+	// Should be able to open the file for reading
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("config file not readable after WriteExample: %v", err)
+	}
+	f.Close()
+}
+
+// TestWriteExampleRoundTrip verifies the full init→load round-trip: the
+// example config written by WriteExample can be loaded back by Load without
+// errors, and the loaded config matches the example. This is the foundation
+// of the install flow — init writes a valid config, and install reads it.
+func TestWriteExampleRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "slugs.yaml")
+
+	if err := WriteExample(path, false); err != nil {
+		t.Fatalf("WriteExample failed: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load of WriteExample output failed: %v", err)
+	}
+
+	example := ExampleConfig()
+	example.AllowShorter = true // WriteExample doesn't set AllowShorter; Load picks up the YAML
+
+	if cfg.AllSlug != example.AllSlug {
+		t.Errorf("AllSlug mismatch: got %q, want %q", cfg.AllSlug, example.AllSlug)
+	}
+	if len(cfg.Slugs) != len(example.Slugs) {
+		t.Errorf("Slugs count mismatch: got %d, want %d", len(cfg.Slugs), len(example.Slugs))
+	}
+	for k, v := range example.Slugs {
+		if cfg.Slugs[k] != v {
+			t.Errorf("slug %q: got %q, want %q", k, cfg.Slugs[k], v)
+		}
+	}
+}
+
 // contains is a helper for substring checking (avoiding strings.Contains import
 // in this test file — keeps it dependency-free for the config package tests).
 func contains(s, substr string) bool {
