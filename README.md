@@ -21,6 +21,22 @@ each map to a Kubernetes namespace and dispatch to `kubectl` with the right
 Anything else is passed straight to `kubectl -n <ns>`, so `kclo delete pod foo`
 and `kclo get deploy` work exactly as you'd expect.
 
+### Built-in cluster-scoped getters: `kgn` and `kns`
+
+Two cluster-scoped shortcuts ship built-in (no namespace, no config entry
+needed):
+
+| Shortcut | Meaning |
+|----------|---------|
+| `kgn`  | `kubectl get nodes` |
+| `kns`  | `kubectl get namespaces` |
+
+Both support the `o` verb (`kgn o` -> `kubectl get nodes -o wide`) and pass
+anything else straight to `kubectl` (e.g. `kgn describe node foo` ->
+`kubectl describe node foo`). User slugs always take precedence — if your
+config defines a slug named `gn` or `ns`, the slug wins and the built-in is
+shadowed.
+
 ## Prerequisites
 
 - **A Kubernetes cluster** you can reach. 38specialK constructs the full
@@ -89,11 +105,22 @@ source ~/.bashrc
 
 ```bash
 go install github.com/weefarm/38specialK/cmd/sk@latest
+# go install puts the binary in $(go env GOPATH)/bin — add it to PATH:
+export PATH="$PATH:$(go env GOPATH)/bin"
+# To make the PATH change permanent, append it to your shell rc:
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
 sk init                       # writes ~/.config/sk/slugs.yaml
 $EDITOR ~/.config/sk/slugs.yaml   # edit to match your namespaces
 sk install >> ~/.bashrc       # emit shell functions + completions + skd alias
 source ~/.bashrc
 ```
+
+> **Note:** `go install` only compiles and places the binary in `$GOPATH/bin`
+> (typically `~/go/bin`). It does **not** run `sk init` or modify your shell
+> config. On a fresh box `~/go/bin` is not on `$PATH` by default, so `sk`
+> will be "command not found" until you add it. The one-line `install.sh`
+> installer above handles this automatically; for manual installs you must
+> add `$GOPATH/bin` to `$PATH` yourself before `sk init` will work.
 
 The generated functions are thin wrappers that call back into `sk dispatch`:
 

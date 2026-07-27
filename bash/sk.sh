@@ -197,6 +197,36 @@ add_k8s_slug krc rook-ceph
 
 king(){ kubectl get ingress --all-namespaces "$@"; }
 
+# Cluster-scoped getters (kgn, kns). Not namespace slugs — they have no -n flag.
+# The `o` verb is handled like namespace slugs; everything else passes through
+# to kubectl without a `get <resource>` prefix so describe/label/edit work.
+#
+#   kgn                   -> kubectl get nodes
+#   kgn o                 -> kubectl get nodes -o wide
+#   kgn o yaml            -> kubectl get nodes -o yaml
+#   kgn describe node foo -> kubectl describe node foo (pass-through)
+#   kns                   -> kubectl get namespaces
+#   kns o                 -> kubectl get namespaces -o wide
+_k8s_cluster_get() {
+  local resource="$1"; shift
+  if [[ $# -eq 0 ]]; then
+    kubectl get "$resource"
+    return
+  fi
+  if [[ $1 == o ]]; then
+    shift
+    if [[ $# -eq 0 ]]; then
+      kubectl get "$resource" -o wide
+    else
+      kubectl get "$resource" -o "$@"
+    fi
+    return
+  fi
+  kubectl "$@"
+}
+kgn(){ _k8s_cluster_get nodes "$@"; }
+kns(){ _k8s_cluster_get namespaces "$@"; }
+
 # Like kubectl_slug but applies a grep filter ONLY to the default pod listing
 # (and its `o` variant). Everything else (rmf, delete, get deploy, ...) passes
 # through to kubectl unfiltered so the slug works like the namespace ones.

@@ -58,6 +58,19 @@ var finTypesCluster = []string{
 	"persistentvolumes",
 }
 
+// clusterGetBuiltins maps built-in cluster-scoped dispatch names to the
+// kubectl resource they list. These are convenience shortcuts (kgn, kns)
+// that bypass the namespace-slug model — they have no namespace.
+//
+// User slugs always take precedence over built-ins: Dispatch only consults
+// this table when the name is NOT a configured slug. This keeps user configs
+// authoritative and avoids surprising behavior if a user redefines `gn` or
+// `ns` to mean something else.
+var clusterGetBuiltins = map[string]string{
+	"gn": "nodes",
+	"ns": "namespaces",
+}
+
 // Options controls dispatch behavior.
 type Options struct {
 	// DryRun prints the kubectl command that would run instead of executing it.
@@ -66,17 +79,24 @@ type Options struct {
 
 // Dispatch resolves name against cfg and executes the appropriate kubectl
 // command with the given args.
+//
+// Resolution order: all-namespaces slug → user slugs/filtered → built-in
+// cluster-scoped getters (gn, ns). User slugs win over built-ins so configs
+// remain authoritative.
 func Dispatch(cfg *config.Config, name string, args []string, opts Options) error {
 	if cfg.IsAll(name) {
 		return dispatchAll(args, opts)
 	}
 
-	ns, filtered, ok := cfg.ResolveSlug(name)
-	if !ok {
-		return fmt.Errorf("no slug named %q in config (have: %s)", name, strings.Join(cfg.Names(), ", "))
+	if ns, filtered, ok := cfg.ResolveSlug(name); ok {
+		return dispatchNS(name, ns, filtered, args, opts)
 	}
 
-	return dispatchNS(name, ns, filtered, args, opts)
+	if resource, isBuiltin := clusterGetBuiltins[name]; isBuiltin {
+		return dispatchClusterGet(resource, args, opts)
+	}
+
+	return fmt.Errorf("no slug named %q in config (have: %s)", name, strings.Join(cfg.Names(), ", "))
 }
 
 // dispatchNS handles a namespace-scoped slug (plain or filtered).
@@ -138,6 +158,35 @@ func dispatchAll(args []string, opts Options) error {
 		fmt.Fprintln(os.Stderr, "Use a namespace-scoped slug instead (e.g. sk dispatch clo rmf deployment foo).")
 		return fmt.Errorf("rmf on all-namespaces is unsafe")
 
+	default:
+		return runKubectl(args, opts)
+	}
+}
+
+// dispatchClusterGet handles built-in cluster-scoped getters (kgn, kns).
+//
+//	sk dispatch gn             -> kubectl get nodes
+//	sk dispatch gn o           -> kubectl get nodes -o wide
+//	sk dispatch gn o yaml      -> kubectl get nodes -o yaml
+//	sk dispatch gn label node foo key=value  -> kubectl label node foo key=value (pass-through)
+//
+// The `o` verb is handled like namespace slugs; everything else is passed
+// straight to kubectl without a `get <resource>` prefix, so non-get commands
+// (describe, label, edit, ...) work naturally.
+func dispatchClusterGet(resource string, args []string, opts Options) error {
+	if len(args) == 0 {
+		return runKubectl([]string{"get", resource}, opts)
+	}
+
+	verb := args[0]
+	rest := args[1:]
+
+	switch verb {
+	case "o":
+		if len(rest) == 0 {
+			return runKubectl([]string{"get", resource, "-o", "wide"}, opts)
+		}
+		return runKubectl(append([]string{"get", resource, "-o"}, rest...), opts)
 	default:
 		return runKubectl(args, opts)
 	}

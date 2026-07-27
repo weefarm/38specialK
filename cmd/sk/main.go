@@ -49,6 +49,10 @@ Verbs (handled by the dispatcher, not kubectl):
   lsf   list resources with finalizers set in the namespace
   rmf   strip finalizers from a resource so it can finish deleting
 
+Built-in cluster-scoped getters (no namespace):
+  kgn        kubectl get nodes        (kgn o -> -o wide)
+  kns        kubectl get namespaces   (kns o -> -o wide)
+
 Anything else is passed through to kubectl -n <ns>.`,
 	}
 
@@ -88,7 +92,10 @@ Examples:
   sk dispatch clo rmf deployment foo  # strip finalizers from deployment/foo
   sk dispatch clo get deploy      # kubectl -n cloudflare get deploy
   sk dispatch all lsf              # whole-cluster finalizer scan
-  sk dispatch cil                 # filtered: kube-system pods | grep cilium`,
+  sk dispatch cil                 # filtered: kube-system pods | grep cilium
+  sk dispatch gn                  # kubectl get nodes (built-in cluster getter)
+  sk dispatch gn o                # kubectl get nodes -o wide
+  sk dispatch ns                  # kubectl get namespaces`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()

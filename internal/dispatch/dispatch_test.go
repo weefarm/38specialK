@@ -418,3 +418,123 @@ func TestConfirmRmfEmptyCancel(t *testing.T) {
 		t.Error("confirmRmf should return false for empty input")
 	}
 }
+
+// --- Built-in cluster-scoped getters (kgn, kns) ---
+
+func TestDispatchKgnNoArgs(t *testing.T) {
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "gn", nil, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl get nodes\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchKgnO(t *testing.T) {
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "gn", []string{"o"}, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl get nodes -o wide\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchKgnOYaml(t *testing.T) {
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "gn", []string{"o", "yaml"}, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl get nodes -o yaml\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchKgnPassthrough(t *testing.T) {
+	// Pass-through should go straight to kubectl (no `get nodes` prefix).
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "gn", []string{"describe", "node", "foo"}, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl describe node foo\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchKnsNoArgs(t *testing.T) {
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "ns", nil, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl get namespaces\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchKnsO(t *testing.T) {
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "ns", []string{"o"}, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl get namespaces -o wide\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchKnsPassthrough(t *testing.T) {
+	cfg := testConfig()
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "ns", []string{"label", "ns", "foo", "key=value"}, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl label ns foo key=value\n"
+	if out != expected {
+		t.Errorf("expected %q, got %q", expected, out)
+	}
+}
+
+func TestDispatchUserSlugOverridesBuiltin(t *testing.T) {
+	// If a user has a slug named "gn", it should take precedence over the
+	// built-in cluster getter.
+	cfg := &config.Config{
+		Slugs:   map[string]string{"gn": "kube-system"},
+		AllSlug: "all",
+	}
+	restore := captureStdout(t)
+	err := Dispatch(cfg, "gn", nil, Options{DryRun: true})
+	out := restore()
+	if err != nil {
+		t.Fatalf("Dispatch failed: %v", err)
+	}
+	expected := "kubectl get pods -n kube-system\n"
+	if out != expected {
+		t.Errorf("user slug should override built-in: expected %q, got %q", expected, out)
+	}
+}

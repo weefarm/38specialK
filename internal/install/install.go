@@ -85,6 +85,16 @@ func Emit(cfg *config.Config, w io.Writer) error {
 		}
 	}
 
+	// Built-in cluster-scoped getters (kgn, kns). Emitted after slug functions
+	// so they're always available; Dispatch resolves user slugs first, so a
+	// user slug named `gn` or `ns` takes precedence over the built-in.
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprint(w, clusterGetSnippet); err != nil {
+		return err
+	}
+
 	// Bare `lsf` guard — prints usage so it can't fire by accident.
 	if _, err := fmt.Fprintln(w); err != nil {
 		return err
@@ -114,9 +124,30 @@ func Emit(cfg *config.Config, w io.Writer) error {
 			return err
 		}
 	}
+	// Completions for built-in cluster getters.
+	if _, err := fmt.Fprintln(w, "complete -F _sk_dispatch_complete kgn"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "complete -F _sk_dispatch_complete kns"); err != nil {
+		return err
+	}
 
 	return nil
 }
+
+// clusterGetSnippet defines the built-in cluster-scoped getter functions
+// (kgn, kns). These are always emitted by `sk install` regardless of the
+// user's slug config; Dispatch resolves user slugs first, so a user-defined
+// `gn` or `ns` slug takes precedence over the built-in.
+const clusterGetSnippet = `# Built-in cluster-scoped getters (not namespace slugs).
+#   kgn        -> kubectl get nodes
+#   kgn o      -> kubectl get nodes -o wide
+#   kns        -> kubectl get namespaces
+#   kns o      -> kubectl get namespaces -o wide
+# Anything else after kgn/kns is passed straight to kubectl (describe, label, ...).
+kgn(){ sk dispatch gn "$@"; }
+kns(){ sk dispatch ns "$@"; }
+`
 
 const gfGuardSnippet = `# Bare lsf is intentionally a no-op that prints usage; use kall lsf or
 # k<slug> lsf for an actual finalizer scan.

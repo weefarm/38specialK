@@ -110,6 +110,31 @@ func TestEmitCompletion(t *testing.T) {
 	}
 }
 
+func TestEmitClusterGetBuiltins(t *testing.T) {
+	cfg := &config.Config{AllSlug: "all"}
+	var buf strings.Builder
+	if err := Emit(cfg, &buf); err != nil {
+		t.Fatalf("Emit failed: %v", err)
+	}
+	out := buf.String()
+
+	// Should emit kgn and kns functions
+	if !strings.Contains(out, "kgn(){ sk dispatch gn \"$@\"; }") {
+		t.Error("expected kgn function in output")
+	}
+	if !strings.Contains(out, "kns(){ sk dispatch ns \"$@\"; }") {
+		t.Error("expected kns function in output")
+	}
+
+	// Should register completions for kgn and kns
+	if !strings.Contains(out, "complete -F _sk_dispatch_complete kgn") {
+		t.Error("expected completion registration for kgn")
+	}
+	if !strings.Contains(out, "complete -F _sk_dispatch_complete kns") {
+		t.Error("expected completion registration for kns")
+	}
+}
+
 func TestEmitDeterministicOrder(t *testing.T) {
 	// Emit should produce deterministic output regardless of map iteration order
 	cfg := &config.Config{
