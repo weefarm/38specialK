@@ -50,7 +50,8 @@ go.work.sum
 __MACOSX/
 .AppleDouble
 .LSOverride
-Icon[]
+Icon[
+]
 
 # Thumbnails
 ._*
@@ -92,4 +93,10 @@ xcuserdata/
 
 # Log files created by default by the nohup command
 nohup.out
+
+# ---> weefarm project metadata (local only, not for public repo)
+# project.faf and CLAUDE.md are generated/maintained locally for agent context;
+# they contain project-specific configuration that shouldn't be in the public mirror.
+project.faf
+CLAUDE.md
 
