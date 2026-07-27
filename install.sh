@@ -74,21 +74,43 @@ if [[ -z "$GOBIN" ]] || [[ "$GOBIN" == "null" ]]; then
   GOBIN="$HOME/go/bin"
 fi
 
-if ! echo "$PATH" | tr ':' '\n' | grep -qx "$GOBIN"; then
-  echo ""
-  echo "Warning: $GOBIN is not on your PATH." >&2
-  echo "Add this line to your ~/.bashrc (or ~/.zshrc):" >&2
-  echo "" >&2
-  echo "  export PATH=\"\$PATH:$GOBIN\"" >&2
-  echo "" >&2
-  echo "Then run: source ~/.bashrc" >&2
-  PATH="$PATH:$GOBIN"
+# Detect the user's shell rc file
+SHELL_RC="$HOME/.bashrc"
+if [[ -n "${ZSH_VERSION:-}" ]] && [[ -f "$HOME/.zshrc" ]]; then
+  SHELL_RC="$HOME/.zshrc"
 fi
-ok "sk is on PATH at $GOBIN"
+
+PATH_EXPORT_LINE="export PATH=\"\$PATH:$GOBIN\""
+
+if ! echo "$PATH" | tr ':' '\n' | grep -qx "$GOBIN"; then
+  # Add the export to the user's shell rc so it persists across sessions
+  if [[ -f "$SHELL_RC" ]] && ! grep -qF "$PATH_EXPORT_LINE" "$SHELL_RC"; then
+    echo "" >> "$SHELL_RC"
+    echo "# Added by 38specialK install script" >> "$SHELL_RC"
+    echo "$PATH_EXPORT_LINE" >> "$SHELL_RC"
+    ok "added $GOBIN to PATH in $SHELL_RC"
+  elif [[ -f "$SHELL_RC" ]] && grep -qF "$PATH_EXPORT_LINE" "$SHELL_RC"; then
+    ok "$GOBIN already in PATH via $SHELL_RC"
+  else
+    # No shell rc file found — warn the user
+    echo "" >&2
+    echo "Warning: could not find $SHELL_RC to add $GOBIN to PATH." >&2
+    echo "Add this line to your shell rc manually:" >&2
+    echo "" >&2
+    echo "  $PATH_EXPORT_LINE" >&2
+    echo "" >&2
+  fi
+  # Make sk available for the rest of this script
+  PATH="$PATH:$GOBIN"
+else
+  ok "$GOBIN is already on PATH"
+fi
 
 # Verify sk is callable
 if ! command -v sk &>/dev/null; then
-  err "sk was installed but is not on PATH. Add $GOBIN to your PATH and re-run."
+  err "sk was installed to $GOBIN but is not on PATH. Add this to your shell rc:
+  $PATH_EXPORT_LINE
+Then run: source $SHELL_RC"
 fi
 ok "sk command available: $(command -v sk)"
 
@@ -115,11 +137,14 @@ echo ""
 echo "Install complete."
 echo ""
 echo "Next steps:"
-echo "  1. Edit your config:  \$EDITOR ~/.config/sk/slugs.yaml"
-echo "  2. Install shell functions into your shell rc:"
-echo "       sk install >> ~/.bashrc"
-echo "  3. Reload your shell:"
-echo "       source ~/.bashrc"
+echo "  1. Reload your shell so the PATH change takes effect:"
+echo "       source $SHELL_RC"
+echo "  2. Edit your config to match your namespaces:"
+echo "       \$EDITOR ~/.config/sk/slugs.yaml"
+echo "  3. Install shell functions into your shell rc:"
+echo "       sk install >> $SHELL_RC"
+echo "  4. Reload again to pick up the slug functions:"
+echo "       source $SHELL_RC"
 echo ""
 echo "You can now use slugs like 'kclo o' instead of 'kubectl get pods -n cloudflare -o wide'."
 echo "Run 'sk list' to see your configured slugs."
