@@ -75,6 +75,24 @@ whole thing is the bullet you fire toward your cluster to make something happen.
 
 ### 1. Go binary (recommended)
 
+**One-line install:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/weefarm/38specialK/main/install.sh | bash
+```
+
+This installs the `sk` binary via `go install`, ensures it's on your `$PATH`, and writes a starter config to `~/.config/sk/slugs.yaml`. Safe to re-run; does not require `sudo` (and will refuse to run as root).
+
+After the install script finishes, edit your config and wire up the shell functions:
+
+```bash
+$EDITOR ~/.config/sk/slugs.yaml   # edit to match your namespaces
+sk install >> ~/.bashrc           # emit shell functions + completions + skd alias
+source ~/.bashrc
+```
+
+**Manual install** (if you prefer to run the steps yourself):
+
 ```bash
 go install github.com/weefarm/38specialK/cmd/sk@latest
 sk init                       # writes ~/.config/sk/slugs.yaml
