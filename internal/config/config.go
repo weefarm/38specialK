@@ -5,8 +5,7 @@
 // slugs that grep the default pod listing (the kcil/kenv pattern).
 //
 // Terminology: a "slug" is a short namespace alias. `kclo` dispatches to the
-// `cloudflare` namespace — `k` is the prefix, `clo` is the slug. The name also
-// nods to Special K (the cereal) and the default 3-8 character slug length.
+// `cloudflare` namespace — `k` is the prefix, `clo` is the slug.
 //
 // The `k` prefix is constant; the slug is the namespace alias it dispatches to.
 package config

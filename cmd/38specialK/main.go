@@ -6,9 +6,8 @@
 // `init`, `help`, and other rare commands where the short name isn't worth
 // a symlink.
 //
-// The name "38specialK" riffs on two things:
-//   - 38 Special (the band) and Special K (the cereal)
-//   - the default 3-8 character length range for slug names
+// The name "38specialK" riffs on the default 3-8 character length range for
+// slug names.
 //
 // See the package doc for sk (cmd/sk) for full usage; the commands are
 // identical.
