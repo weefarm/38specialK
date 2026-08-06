@@ -19,7 +19,10 @@ each map to a Kubernetes namespace and dispatch to `kubectl` with the right
 | `rmf` | strip finalizers from a resource so it can finish deleting |
 
 Anything else is passed straight to `kubectl -n <ns>`, so `kclo delete pod foo`
-and `kclo get deploy` work exactly as you'd expect.
+and `kclo get deploy` work exactly as you'd expect. `kubectl` flags come along
+too (`kclo delete pod foo --force --grace-period=0`, `kclo logs foo -f`). sk's
+own flags (`--dry-run`, `--config`) only apply before the slug name, e.g.
+`sk --dry-run dispatch clo delete pod foo --force`.
 
 ### Built-in cluster-scoped getters: `kgn` and `kns`
 
