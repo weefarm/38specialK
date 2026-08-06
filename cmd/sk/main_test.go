@@ -20,8 +20,15 @@ func runDispatch(t *testing.T, args ...string) (string, error) {
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
+	defer func() {
+		if err := r.Close(); err != nil {
+			t.Errorf("close read end: %v", err)
+		}
+	}()
+
 	orig := os.Stdout
 	os.Stdout = w
+	defer func() { os.Stdout = orig }()
 
 	cmd := dispatchCmd()
 	cmd.SetArgs(args)
@@ -29,9 +36,8 @@ func runDispatch(t *testing.T, args ...string) (string, error) {
 	cmd.SetErr(w)
 	runErr := cmd.Execute()
 
-	os.Stdout = orig
 	if err := w.Close(); err != nil {
-		t.Fatalf("close: %v", err)
+		t.Fatalf("close write end: %v", err)
 	}
 	var sb strings.Builder
 	buf := make([]byte, 4096)
